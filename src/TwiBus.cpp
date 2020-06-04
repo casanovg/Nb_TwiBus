@@ -4,7 +4,7 @@
  *  ...........................................
  *  File: TwiBus.cpp (Library)
  *  ........................................... 
- *  Version: 1.0.1 / 2020-05-07
+ *  Version: 1.1.0 / 2020-05-25
  *  gustavo.casanova@gmail.com
  *  ...........................................
  *  This library allows scanning the TWI (I2C) bus in search
@@ -17,26 +17,40 @@
 #include <Arduino.h>
 
 /////////////////////////////////////////////////////////////////////////////
-////////////                    TWIBUS CLASS                     ////////////
+////////////                    TwiBus class                     ////////////
 /////////////////////////////////////////////////////////////////////////////
 
-// Class constructor
-TwiBus::TwiBus(byte sda, byte scl) : sda_(sda), scl_(scl) {
-    if (!((sda == 0) && (scl == 0))) {
+/* _________________________
+  |                         | 
+  |       Constructor       |
+  |_________________________|
+*/
+TwiBus::TwiBus(uint8_t sda, uint8_t scl) : sda_(sda), scl_(scl) {
+#if (ARDUINO_ARCH_ESP8266 || ARDUINO_ESP32_DEV || ESP_PLATFORM)
+    // Start the TWI driver (ESP micros)
+    // If SDA and SCL pins are not specified, use the default ones
+    if (!((sda_ == 0) && (scl_ == 0))) {
 #if ((defined DEBUG_LEVEL) && (DEBUG_LEVEL >= 1))
         USE_SERIAL.printf_P("[%s] Creating a new I2C connection\n\r", __func__);
-#endif                        /* DEBUG_LEVEL */
-        Wire.begin(sda, scl); /* Init I2C sda:GPIO0, scl:GPIO2 (ESP-01) / sda:D3, scl:D4 (NodeMCU) */
-        reusing_twi_connection_ = false;
+#endif                           // DEBUG_LEVEL
+        Wire.begin(sda_, scl_);  // Init I2C sda_:GPIO0, scl_:GPIO2 (ESP-01) / sda_:D3, scl_:D4 (NodeMCU)
     } else {
 #if ((defined DEBUG_LEVEL) && (DEBUG_LEVEL >= 1))
-        USE_SERIAL.printf_P("[%s] Reusing I2C connection\n\r", __func__);
-#endif /* DEBUG_LEVEL */
-        reusing_twi_connection_ = true;
+        USE_SERIAL.printf_P("[%s] Reusing the TWI connection with address %02d\n\r", __func__, addr_);
+#endif                                         // DEBUG_LEVEL
+        Wire.begin(SDA_STD_PIN, SCL_STD_PIN);  // Init I2C with default SDA and SCL pins
     }
+#else   // -----
+    // Start the TWI driver using the default SDA and SCL pins (AVR micros)
+    Wire.begin();  // Init I2C sda:PC4/18/A4, scl:PC5/19/A5 (ATmega)
+#endif  // ARDUINO_ARCH_ESP8266
 }
 
-// Class destructor
+/* _________________________
+  |                         | 
+  |       Destructor        |
+  |_________________________|
+*/
 TwiBus::~TwiBus() {
     // Destructor
 }
@@ -47,13 +61,13 @@ TwiBus::~TwiBus() {
   |_________________________|
 */
 // ScanBus (Overload A: Return the address and mode of the first TWI device found on the bus)
-byte TwiBus::ScanBus(bool *p_app_mode) {
+uint8_t TwiBus::ScanBus(bool *p_app_mode) {
     // Address 08 to 35: Timonel bootloader (app mode = false)
     // Address 36 to 63: Application firmware (app mode = true)
 #if ((defined DEBUG_LEVEL) && (DEBUG_LEVEL >= 1))
     USE_SERIAL.printf_P("\n\r[%s] Scanning TWI bus, looking for the first device (lowest address) ...\n\r", __func__);
 #endif /* DEBUG_LEVEL */
-    byte twi_addr = LOW_TWI_ADDR;
+    uint8_t twi_addr = LOW_TWI_ADDR;
     while (twi_addr < HIG_TWI_ADDR) {
         Wire.beginTransmission(twi_addr);
         if (Wire.endTransmission() == 0) {
@@ -75,7 +89,7 @@ byte TwiBus::ScanBus(bool *p_app_mode) {
         delay(DLY_SCAN_BUS);
         twi_addr++;
     }
-    return OK;
+    return 0;
 }
 
 /* _________________________
@@ -84,7 +98,7 @@ byte TwiBus::ScanBus(bool *p_app_mode) {
   |_________________________|
 */
 // ScanBus (Overload B: Fills an array with the address, firmware and version of all devices connected to the bus)
-byte TwiBus::ScanBus(DeviceInfo dev_info_arr[], byte arr_size, byte start_twi_addr) {
+uint8_t TwiBus::ScanBus(DeviceInfo dev_info_arr[], uint8_t arr_size, uint8_t start_twi_addr) {
     // Address 08 to 35: Timonel bootloader
     // Address 36 to 63: Application firmware
     // Each I2C slave must have a unique bootloader address that corresponds
@@ -94,13 +108,20 @@ byte TwiBus::ScanBus(DeviceInfo dev_info_arr[], byte arr_size, byte start_twi_ad
 #if ((defined DEBUG_LEVEL) && (DEBUG_LEVEL >= 1))
     USE_SERIAL.printf_P("\n\r[%s] Scanning TWI bus, searching all the connected devices, please wait ...\n\r", __func__);
 #endif /* DEBUG_LEVEL */
-    byte found_devices = 0;
-    byte twi_addr = LOW_TWI_ADDR;
+    uint8_t found_devices = 0;
+    uint8_t twi_addr = LOW_TWI_ADDR;
     while (twi_addr <= HIG_TWI_ADDR) {
         Wire.beginTransmission(twi_addr);
         if (Wire.endTransmission() == 0) {
+            // User application range address
+            dev_info_arr[found_devices].addr = twi_addr;
+            dev_info_arr[found_devices].firmware = L_APP;
+            dev_info_arr[found_devices].version_major = 0;
+            dev_info_arr[found_devices].version_minor = 0;
+#if DETECT_TIMONEL
             if (twi_addr < (((HIG_TWI_ADDR + 1 - LOW_TWI_ADDR) / 2) + LOW_TWI_ADDR)) {
-                Timonel tml(twi_addr);
+                // Timonel bootloader address range
+                Timonel tml(twi_addr, sda_, scl_);
                 Timonel::Status sts = tml.GetStatus();
                 dev_info_arr[found_devices].addr = twi_addr;
                 if (sts.signature == T_SIGNATURE) {
@@ -110,16 +131,12 @@ byte TwiBus::ScanBus(DeviceInfo dev_info_arr[], byte arr_size, byte start_twi_ad
                 }
                 dev_info_arr[found_devices].version_major = sts.version_major;
                 dev_info_arr[found_devices].version_minor = sts.version_minor;
-            } else {
-                dev_info_arr[found_devices].addr = twi_addr;
-                dev_info_arr[found_devices].firmware = L_APP;
-                dev_info_arr[found_devices].version_major = 0;
-                dev_info_arr[found_devices].version_minor = 0;
             }
+#endif  // DETECT_TIMONEL
             found_devices++;
         }
         //delay(DLY_SCAN_BUS);
         twi_addr++;
     }
-    return OK;
+    return 0;
 }
