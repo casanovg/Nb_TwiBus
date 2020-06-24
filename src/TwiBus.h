@@ -4,7 +4,7 @@
  *  ...........................................
  *  File: TwiBus.h (Header)
  *  ........................................... 
- *  Version: 1.1.0 / 2020-05-25
+ *  Version: 1.1.1 / 2020-06-25
  *  gustavo.casanova@gmail.com
  *  ...........................................
  *  This library allows scanning the TWI (I2C) bus in search
@@ -12,8 +12,8 @@
  *  is running Timonel, it returns its version number.
  */
 
-#ifndef _TWIBUS_H_
-#define _TWIBUS_H_
+#ifndef TWIBUS_H
+#define TWIBUS_H
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -48,4 +48,4 @@ class TwiBus {
     uint8_t sda_ = 0, scl_ = 0;
 };
 
-#endif /* _TWIBUS_H_ */
+#endif  // TWIBUS_H

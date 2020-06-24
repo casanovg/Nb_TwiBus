@@ -3,13 +3,13 @@
   =================================
   TwiBus configuration
   ---------------------------------
-  Version: 1.1.0 / 2020-05-25
+  Version: 1.1.1 / 2020-06-25
   gustavo.casanova@gmail.com
   ---------------------------------
 */
 
-#ifndef _TWIBUS_CONFIG_H_
-#define _TWIBUS_CONFIG_H_
+#ifndef TWIBUS_CONFIG_H
+#define TWIBUS_CONFIG_H
 
 /////////////////////////////////////////////////////////////////////////////
 ////////////                   TwiBus settings                   ////////////
@@ -31,4 +31,4 @@
 ////////////                    End settings                     ////////////
 /////////////////////////////////////////////////////////////////////////////
 
-#endif /* _TWIBUS_CONFIG_H_ */
+#endif  // TWIBUS_CONFIG_H
