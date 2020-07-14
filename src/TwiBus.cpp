@@ -4,7 +4,7 @@
  *  ...........................................
  *  File: TwiBus.cpp (Library)
  *  ........................................... 
- *  Version: 1.1.1 / 2020-06-25
+ *  Version: 1.2.0 / 2020-07-13
  *  gustavo.casanova@gmail.com
  *  ...........................................
  *  This library allows scanning the TWI (I2C) bus in search
@@ -31,12 +31,12 @@ TwiBus::TwiBus(uint8_t sda, uint8_t scl) : sda_(sda), scl_(scl) {
     // If SDA and SCL pins are not specified, use the default ones
     if (!((sda_ == 0) && (scl_ == 0))) {
 #if ((defined DEBUG_LEVEL) && (DEBUG_LEVEL >= 1))
-        USE_SERIAL.printf_P("[%s] Creating a new I2C connection\n\r", __func__);
+        USE_SERIAL.printf_P("[%s] Creating a new TWI connection -> [SDA: %d] [SCL: %d]\n\r", __func__, sda_, scl_);
 #endif                           // DEBUG_LEVEL
         Wire.begin(sda_, scl_);  // Init I2C sda_:GPIO0, scl_:GPIO2 (ESP-01) / sda_:D3, scl_:D4 (NodeMCU)
     } else {
 #if ((defined DEBUG_LEVEL) && (DEBUG_LEVEL >= 1))
-        USE_SERIAL.printf_P("[%s] Reusing the TWI connection with address %02d\n\r", __func__, addr_);
+        USE_SERIAL.printf_P("[%s] Creating a new TWI connection -> [SDA: %d] [SCL: %d]\n\r", __func__, SDA_STD_PIN, SCL_STD_PIN);
 #endif                                         // DEBUG_LEVEL
         Wire.begin(SDA_STD_PIN, SCL_STD_PIN);  // Init I2C with default SDA and SCL pins
     }
